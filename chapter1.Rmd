@@ -1,12 +1,33 @@
 
 # About the project
 
-*Write a short description about the course and add a link to your GitHub repository here. This is an R Markdown (.Rmd) file so you should use R Markdown syntax.*
+*Github repository : https://github.com/kbatpurev/IODS-project.git This course seems like a good fit for me. Even though i am familiar with most of the topics listed, i always find gaps in my knowledge and technique as i am self-taught R student. The bit that i am looking forward to the Git and Rmarkdown part a lot. I am a complete novice on both, but i am planning to get into it with sleeves up.I learnt about the course through Sisu. RHDS is a pretty good option for a crash course i feel. I liked the exercises. Favourite chapter was 4, data visualisation.*
 
 ```{r}
-# This is a so-called "R chunk" where you can write R code.
-
+#==========================Getting familiar with gapminder data=========================
 date()
+library(tidyverse)
+library(gapminder)
+
+head(gapminder)
+gapminderMongolia=gapminder %>% filter(country=="Mongolia")
+#Only 4 fold increase in Mongolia's GPD over 55 years between 1952 and 2007. 
+#Lets see what Australia looks like
+gapminderAustralia=gapminder %>% filter(country=="Australia")
+#Only just over 3 folds! Less than Mongolia=Very interesting. 
+gapminder1997=gapminder%>%filter(year==1997)
+gapminder1997%>%ggplot(aes(x=gdpPercap,y=lifeExp))+
+  geom_point()
+
+t.test(lifeExp~gdpPercap>20000,data=gapminder1997)
+#Life expectancy in countries with gpd above 20000 (i am guessing USD) is higher than poorer countries. Expected
+
+#==============================Personal access token===================================
+install.packages("usethis")
+usethis::create_github_token()
+gitcreds::gitcreds_set()
+#Enter the key
+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
 
 ```
 The text continues here.
