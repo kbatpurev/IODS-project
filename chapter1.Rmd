@@ -3,19 +3,25 @@
 
 *Github repository : https://github.com/kbatpurev/IODS-project.git This course seems like a good fit for me. Even though i am familiar with most of the topics listed, i always find gaps in my knowledge and technique as i am self-taught R student. The bit that i am looking forward to the Git and Rmarkdown part a lot. I am a complete novice on both, but i am planning to get into it with sleeves up.I learnt about the course through Sisu. RHDS is a pretty good option for a crash course i feel. I liked the exercises. Favourite chapter was 4, data visualisation.*
 
-## IODS 23
-#Main learning outcomes
+# IODS 23
+
+## Main learning outcomes
 Git and Rmarkdown. And filling the gaps in my knowledge
 
-#Favourite chapter from RHDS book
+## Favourite chapter from RHDS book
 Chapter 4 Data Vis
 
-#Source of info about course
+## Source of info about course
 Sisu
 
 
 ```{r}
-#==========================Getting familiar with gapminder data=========================
+
+```
+
+## Getting familiar with gapminder data
+
+```{r}
 date()
 library(tidyverse)
 library(gapminder)
@@ -32,14 +38,5 @@ gapminder1997%>%ggplot(aes(x=gdpPercap,y=lifeExp))+
 
 t.test(lifeExp~gdpPercap>20000,data=gapminder1997)
 #Life expectancy in countries with gpd above 20000 (i am guessing USD) is higher than poorer countries. Expected
-
-#==============================Personal access token===================================
-install.packages("usethis")
-usethis::create_github_token()
-gitcreds::gitcreds_set()
-#Enter the key
-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
-
 ```
-The text continues here.
 
