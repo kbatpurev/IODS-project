@@ -5,13 +5,13 @@
 
 ## IODS 23
 #Main learning outcomes
-*Git and Rmarkdown. And filling the gaps in my knowledge*
+Git and Rmarkdown. And filling the gaps in my knowledge
 
 #Favourite chapter from RHDS book
-*Chapter 4 Data Vis*
+Chapter 4 Data Vis
 
 #Source of info about course
-*Sisu*
+Sisu
 
 
 ```{r}
