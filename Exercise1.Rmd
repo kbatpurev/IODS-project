@@ -161,8 +161,8 @@ my_datetime %>% class()
 2.2.4 continued...
 
 ```{r}
-#my_datetime_converted <- ymd_hm(my_datetime)
-#my_datetime_converted
+my_datetime_converted <- ymd_hm(my_datetime)
+my_datetime_converted
 
 # now it will work:
 my_datetime - current_datetime
@@ -173,8 +173,8 @@ my_datesdiff %>% class()
 ymd_hm("2021-01-02 12:00") + my_datesdiff
 
 # another error challenge here... (again you may put '#' in front of that afterwards)
-560/my_datesdiff
-560/as.numeric(my_datesdiff)
+#560/my_datesdiff
+#560/as.numeric(my_datesdiff)
 ```
 
 2.2.4 continued...
@@ -412,12 +412,12 @@ typesdata %>%
 2.8 continued...
 
 ```{r}
-mydata$`Nasty column name`
+#mydata$`Nasty column name`
 
 # or
 
-mydata %>% 
- select(`Nasty column name`)
+#mydata %>% 
+ #select(`Nasty column name`)
 ```
 
 2.8 continued...
