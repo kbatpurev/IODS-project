@@ -22,10 +22,6 @@ Sisu
 ## Getting familiar with gapminder data
 
 ```{r}
-date()
-library(tidyverse)
-library(gapminder)
-
 head(gapminder)
 gapminderMongolia=gapminder %>% filter(country=="Mongolia")
 #Only 4 fold increase in Mongolia's GPD over 55 years between 1952 and 2007. 
