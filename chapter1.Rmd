@@ -3,6 +3,17 @@
 
 *Github repository : https://github.com/kbatpurev/IODS-project.git This course seems like a good fit for me. Even though i am familiar with most of the topics listed, i always find gaps in my knowledge and technique as i am self-taught R student. The bit that i am looking forward to the Git and Rmarkdown part a lot. I am a complete novice on both, but i am planning to get into it with sleeves up.I learnt about the course through Sisu. RHDS is a pretty good option for a crash course i feel. I liked the exercises. Favourite chapter was 4, data visualisation.*
 
+## IODS 23
+#Main learning outcomes
+*Git and Rmarkdown. And filling the gaps in my knowledge*
+
+#Favourite chapter from RHDS book
+*Chapter 4 Data Vis*
+
+#Source of info about course
+*Sisu*
+
+
 ```{r}
 #==========================Getting familiar with gapminder data=========================
 date()
