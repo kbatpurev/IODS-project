@@ -1,25 +1,48 @@
 
 # About the project
 
-*Github repository : https://github.com/kbatpurev/IODS-project.git This course seems like a good fit for me. Even though i am familiar with most of the topics listed, i always find gaps in my knowledge and technique as i am self-taught R student. The bit that i am looking forward to the Git and Rmarkdown part a lot. I am a complete novice on both, but i am planning to get into it with sleeves up.I learnt about the course through Sisu. RHDS is a pretty good option for a crash course i feel. I liked the exercises. Favourite chapter was 4, data visualisation.*
 
-# IODS 23
+*This course seems like a good fit* *for me. Even though i am familiar with most of the topics listed, i always find gaps in my knowledge, as i am a self-taught R student. The bits that i am an new to are Git and Rmarkdown. I am looking forward to learning both, so i am planning to get into it with sleeves up.I learnt about the course through Sisu. RHDS is a pretty good option for a crash course i feel. I liked the exercises. Favourite chapter was 4, data visualisation.*
 
-## Main learning outcomes
-Git and Rmarkdown. And filling the gaps in my knowledge
+#### Github repository
 
-## Favourite chapter from RHDS book
-Chapter 4 Data Vis
+## https://github.com/kbatpurev/IODS-project.git 
 
-## Source of info about course
-Sisu
+===============================================================================================
 
+#### Main outcomes that i hope to achieve 
+
+##### Ins and outs of Git and Github
+##### Rmarkdown
+##### Fill R knowledge gaps
+##### And enjoy the course
+
+
+
+#### Favourite chapter from RHDS book
+Chapter 4 Data Visualisation. I enjoyed the challenge in the exercise to make th European countries life expectancy bar chart. 
+
+
+
+#### Source of info about course
+Through Sisu course menu. 
+
+
+
+#### Potential proposal to improve the learning outcomes
+The fact that R codes are already in the Exercise.Rmd is quite good. But i found myself sometimes glancing over them when i was pressing the Run button. *And therefore I would suggest that part of the assessment or the homework could be to make comments under each code chunk so that students actually have to understand the code and what it is doing*. 
+
+
+
+#### About this diary
+They way i have perceived how this diary should work is to compile learning material that piqued my interest (for example something new, or interesting fact from the course data) rather than jot down everything that i came across the RHDS book.I hope this is an acceptable approach.  
 
 ```{r}
 
 ```
+===============================================================================================
 
-## Getting familiar with gapminder data
+#### Getting familiar with gapminder data
 
 ```{r}
 library(gapminder)
@@ -37,4 +60,44 @@ gapminder1997%>%ggplot(aes(x=gdpPercap,y=lifeExp))+
 t.test(lifeExp~gdpPercap>20000,data=gapminder1997)
 #Life expectancy in countries with gpd above 20000 (i am guessing USD) is higher than poorer countries. Expected
 ```
+===============================================================================================
 
+## Excercises
+
+### 2.2.4 
+This was a good little exercise. But to be honest, it would be quite difficult one to solve if you are not familiar with lubridate package or just time/date data generally. Once you understand that, it is quite simple. The example in the RHDS book is quite easy to miss (as it is literally discussed in one code chunk). It required either prior knowledge, or a couple of hours spent going through lubridate.
+
+#### My solution
+
+```{r}
+my_datetime <- ymd_hm("2020-12-01 12:00")
+#This enables the characters in the "" to be data/time format. And only then you can start applying functions to it. Before that, it is more like a character and hence R would not understand.
+my_datetime %>% class()
+```
+Then I used the same R object in the next bit
+```{r}
+current_datetime <- Sys.time()
+current_datetime
+my_datetime - current_datetime
+#I didn't want to create another object for the sake of keeping the Environment under control. 
+my_datesdiff <- my_datetime - current_datetime
+my_datesdiff %>% class()
+ymd_hm("2021-01-02 12:00") + my_datesdiff
+```
+
+### 4.6.5 
+As mentioned above, this was my favorite part of the Chapters. Possibly because i love data visualisation generally.I later noticed that the RHDS book solution to the exercise was a bit more elegant than my solution because they went from filtering the data straight to ggplot2 function, whereas i filtered first, then looked at the structure of the data and then applied ggplot2. 
+#### My solution
+```{r}
+europe2007=gapminder%>%filter(continent=="Europe",
+                              year==2007)
+str(europe2007)
+
+europe2007%>% 
+  ggplot(aes(y=lifeExp,x=fct_reorder(country,lifeExp)))+
+  geom_col(fill=NA,colour="deepskyblue") +
+  coord_flip()+
+  theme(legend.position = "none")
+```
+
+===============================================================================================
