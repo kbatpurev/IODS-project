@@ -1,0 +1,155 @@
+---
+title: "temp_chapter2.Rmd"
+Author: "Khorloo Batpurev"
+output: html_document
+date: "2023-11-14"
+---
+
+#### **Task 1 - Read student2014 data into R**
+```{r setup, include=TRUE,warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+student2014<-read.csv("learning2014.csv")
+library(tidyverse)
+glimpse(student2014)
+```
+**Data dimensions**
+The dimensions of this dataset should be 166 x 7 (original dimension when created). But reading it back into R using read.csv function adds an ID column at the start, which is titled X because its a blank column name (automated by R) and hence now it has 8 columns instead of 7. 
+
+**How this data was created**
+The original raw data came from: http://www.helsinki.fi/~kvehkala/JYTmooc/JYTOPKYS3-data.txt, which is a tab delimited text file. This was read into R using read.delim2() function (alternatively read.table function). Then 3 groups of questions of interest *Deep questions* = 'deep' column,*Strategic questions* = 'stra' column and *surface questions* = 'surf' column  were applied (to select subset of columns from the raw data) and then data was summarised by rowMeans() function for each of the subset of questions. Then we filtered the data so that students with exam points of 0 were eliminated from the dataset using dplyr::filter() function. 
+
+#====================================================================================================================
+
+#### **Task 2 - Graphical overview**
+```{r include=TRUE,warning=FALSE}
+library(ggplot2)
+library(GGally)
+
+ggexplore<-ggplot(student2014,aes(x=attitude,y=deep))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  ggtitle("Relationship between students' attitude towards \n statistics and deep philosophical questions")
+ggexplore
+```
+
+**Interpretation**: Maybe slight positive relationship, suggesting that people who scored higher on their attitude towards statistics is more likely to score higher on philosophical questions. 
+
+##### Pairs plot
+This type of plot is great at comparing all the variables against all the others at the same time, rather than plotting only 2 variables at a time with a ggplot+geom_point() function above. 
+
+```{r pressure, echo=TRUE,warning=FALSE}
+student2014<-student2014[,2:8] #this is needed now because we want the pairs plot to look less messy. 
+str(student2014)
+pairs<- ggpairs(student2014, mapping = aes(col=gender), lower = list(combo = wrap("facethist", bins = 30)))
+pairs
+```
+
+**Interpretation**:
+
+##### Basics
+
+The diagonal column is the distribution of male and female students attributes against different variables (age, attitude,deep questions, strategic questions, surface question and exam points). The scatter plots on the bottom left of the diagonal show the relationship between each pair of variables (top down and right to left direction). The correlation coefficients between pairs of variables are shown in boxes on the top right and side of the diagonal (relates to the raw scatter plots on the bottom left). There is more females than males (red bar vs blue bar respectively) in the study. The average age of females is slightly less than males. Responses to deep philosophical questions and their attitudes of females is slightly lower than males. Females score higher on strategic and surface questions than males. Exam points are similar across the two genders (bar some outliers). Most students are between 20-30 years of age (left skew in distribution plot), and the exam points are slightly more multi-modal (several peaks) than the rest of the distributions. 
+
+##### A bit deeper
+
+The most significant relationships are between exam points and attitude towards statistics - students with more positive attitude towards statistics are more likely to score higher in exams (perhaps predictable). There is a significant (negative slope) relationship between responses to deep philosophical questions and surface questions - when people score higher on deep questions, they are likely to score lower on surface questions. This relationship is particularly noticeable amongst males. Similar, but weaker relation is true for surface question responses and strategic responses (but no difference in responses between genders). 
+
+#====================================================================================================================
+
+#### **Task 3 - Regression on exam score**
+
+```{r echo=TRUE,warning=FALSE}
+str(student2014)
+mod1<-lm(formula= Points ~ attitude+Age+deep+stra+surf,data=student2014)
+summary(mod1)
+```
+
+Surface and deep questions don't have any significant relationship with exam points. So lets remove them, but before that we can be fancy and use a formal variable selection package to confirm our suspesions/support our decision. 
+
+```{r echo=TRUE,warning=FALSE}
+library(olsrr)
+ols_step_all_possible(mod1)
+```
+
+This is a package that uses ordinary least square technique to select useful variables in a regression. It is just an example of many tens, if not hundreds of packages out there that does the same thing, but probably uses slightly different statistical method (not ols). It checks for interaction between variables as well, which is useful. 
+
+##### **All possible regression** method
+
+```{r echo=TRUE,warning=FALSE}
+kplot<-ols_step_all_possible(mod1)
+plot(kplot)
+```
+
+The convention with model stats is usually maximise R-squared and minimise AIC and MSE. But for the best subset of variables, the package has readily made function, which we will try below. 
+
+```{r echo=TRUE,warning=FALSE}
+ols_step_best_subset(mod1)
+```
+
+LOL, more regression summary statistics than i care for! Lets try plotting this so its a bit more intuitive. 
+
+```{r echo=TRUE,warning=FALSE}
+kplot1<-ols_step_best_subset(mod1)
+plot(kplot1)
+```
+Ok, this shows that the optimum model maybe model #3 Points ~ attitude+ Age+stra (min AIC) with    
+
+##### **Stepwise backward regression** methods
+```{r echo=TRUE,warning=FALSE}
+mod2<-lm(formula= Points ~ .,data=student2014)
+summary(mod2)
+#Notice slightly different function. This is choosing models on AIC. 
+ols_step_backward_aic(mod2) 
+kplot2<-ols_step_backward_aic(mod2) 
+plot(kplot2)
+#If we do it based on p value,
+ols_step_backward_p(mod2)
+#Only removes gender from the model, which is slightly different to backward selection based on AIC
+```
+
+The results of the step_backward_aic method matches with the best selection method above. I'd be happy to go with that. Hence the final model of choice based on the above two methods is below in final<-lm: 
+
+#====================================================================================================================
+
+#### **Task 4 - Model interpretation**
+
+```{r echo=TRUE,warning=FALSE}
+final<-lm(formula= Points ~ attitude+Age+stra,data=student2014)
+summary(final)
+```
+**Call:**
+This is the function that we are calling. Our final model that we are going to dissect below
+
+**Residuals:**
+This tells us how well the model fits to the data. It tells us the distance of points away from the main regression line at 5 different places: Minimum, maximum, median, 1st quartile and 3rd quartile (all in units of distancee, rather than actual value). 
+
+**Coefficients:**
+The first value in the Estimate column is the intercept of the regression (it is a constant typically read as beta 0), otherwise known as estimate of dependent variable when all independent variables are 0. Then the next values under Estimate column are the slopes for each of the independent variables. Here we have positive slope for attitude and strategic question responses and negative slope for age on exam points (i.e., younger the students, less likely they get higher score). Attitude has by far the strongest influence on exam scores (3.4 slope vs 1 and 0.08). 
+
+**Signif.codes:**
+These relate to significance levels of p-value. Triple star means most significant, dots and space means less significant. 
+
+**Model fit stats**
+Stuff below the significance levels are about model performance statistics. The main one i look at is R-squared values (how much of the variance in the data did the model explain?). In this case its only around 20% - which is quite underwhelming. The difference between the multiple and adjusted R-squared is when penalty is applied to the number of independent variables included in the model. Ideally, we want R-squared values (particularly adjusted R-squared) value closer to 1, which would mean nearly all variability in data is explained by the model. 
+
+#====================================================================================================================
+
+#### **Task 5 - Diagnostics**
+```{r echo=TRUE,warning=FALSE}
+library(ggfortify)
+autoplot(final)
+```
+
+**Residuals vs Fitted**
+This shows if the residuals of the model have a normal distribution. If there are abnormal shapes (such as fanning, or curves), that usually indicates that the residuals aren't normally distributed and therefore the model does not comply with the assumptions of the model (in linear regression this is a must). In this instance, it don't see any fanning or curving, so that's fine.
+
+**Normal QQ plot**
+In this plot, we want to points to be perfectly aligned to the diagonal line, which would indicate a perfect fit. In our case, there are some parts of the data that does large deviation, which means model fit is not very good at the extreme ends. Particular outliers stand out, 56, 145 and 35 are row ids for some special cases in our data set. They do not comply well to the regression line! 
+
+**Scale-location**
+Shows the same thing as residuals vs fitted, except here the residuals are standardized and squared rooted. This is kind of akin to forcing the negative values in residuals (for example in our final model the minimum was negative 10) to positive values (standardising and taking square root) so the total units of distance from main fitted regression can be measured (otherwise -/+ of units gets confusing). Again, we have the culprits 
+
+**Residuals vs Leverage**
+This tells us about influence of individual data points (called leverage). Here, data points 4 and 2 (pulling the fitted line at one end) are big influencers (highest leverage). 56 is kind of in the middle, but very much an outlier still (from QQ plot).
+
+#====================================================================================================================
