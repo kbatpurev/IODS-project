@@ -1,0 +1,201 @@
+Author: Khorloo Batpurev title: "Chapter3" output: html_document date: "2023-11-20"
+
+# Week 3 - Logistic Regression
+
+```{r echo=TRUE,warning=FALSE}
+date()
+```
+
+#### **Task 1 - Describe the data briefly**
+
+This is the dataframe saved locally on my computer
+
+```{r echo=TRUE,warning=FALSE}
+library(tidyverse)
+unique_students<-read_csv("students_from_math_and_porteguese_classes_and_alc_consumption.csv")
+glimpse(unique_students)
+```
+
+The above data was created by joining two separate dataframes of students from Maths and Porteguese classes. We merged the dataframes by the common columns in both dataframes, removed duplicate students from both datasets (in case some students did both courses). Then we summarised the alcohol consumption during the weekday (average of Dalc column) from all students. This is alc_use_weekday column. And similarly, alcohol consumption during the weekend (average of Walc column). Inevitably, the average alcohol intake during the weekend was higher because students liked to party more during the weekend. The average alcohol consumption for all students both during the week and weekend is in column named alc_use. Then i went on to create a logical column that stated the alcohol consumption at individual student's level (if either of Dalc and Walc was above 2 units) under high_use_each_case column. The high_use column is if the global average (alc_use) was above 2 units. Full working of the data wrangling part is here: <https://github.com/kbatpurev/IODS-project/blob/master/create_alc.R>
+
+#### **Task 2 - Choose 4 variables of interest**
+
+```{r echo=TRUE,warning=FALSE}
+#Source data
+alc <- read_csv("https://raw.githubusercontent.com/KimmoVehkalahti/Helsinki-Open-Data-Science/master/datasets/alc.csv", show_col_types=FALSE)
+library(ggplot2)
+library(GGally)
+
+#These are the possible columns of interest
+MyVar <- c("sex","Pstatus","guardian","higher","romantic","age","famrel","freetime","goout","alc_use","failures","absences")
+library(psych)
+pairs.panels(alc[,MyVar], 
+             method = "pearson", # correlation method
+             hist.col = "#00AFBB",
+             density = TRUE,  # show density plots
+             )
+```
+
+This shows us that high alcohol intake is positively correlated with free time, going out and age. Older students with more free time, who goes out a lot tend to consume higher amount of alcohol. There is negative correlation with intention to do higher education (if planning to go on to further studies) and alcohol use and family relations (better relations less likely to consume alcohol). Interestingly, there is strong negative relationship between intentions to do higher education and romantic relationship. It seems busier students with more study load are less likely to have romantic partners. Exam failures and absences are also linked to high alcohol use.
+
+**4 variables of interest**
+1. Going out (free time is correlated to this, and therefore i am choosing not to include that to avoid collinearity) and 
+2. Sex
+3. Absences
+4. Failures
+
+These are in descending order of Pearson's correlation coefficient score presented in pairs plot. I thought about removing failures and including age instead, because i thought absences would explain exam failures, but the correlation between these two is only 0.07, which indicates they are not hugely correlated and therefore not imposing collinearity issues further down the line.
+
+#### **Task 3 - Numerically and graphically explore the chosen variables**
+
+```{r echo=TRUE,warning=FALSE}
+library(tidyverse)
+#Here i choose subset of social variables that interest me
+cols_interest<-dplyr::select(alc,c("goout","sex","absences","failures","alc_use"))
+
+#Further subset of variables that i am going to plot
+GatherTheseCols <- c("goout","sex","absences","failures")
+interest_long<- gather(data = cols_interest, 
+                  key = "ID", 
+                  value = "AllX", 
+                  GatherTheseCols, 
+                  factor_key = TRUE) 
+interest_plot<-ggplot(data = interest_long, aes(y=alc_use,x=AllX)) +
+      geom_boxplot()+
+      theme(text = element_text(size=15))+facet_grid(.~ID,scales="free_x")+
+      theme(axis.text.x = element_text(angle=90))
+interest_plot
+```
+Absences and alcohol intake have potentially non-linear relationship! The rest are quite predictable. Males' intake of alcohol is higher than females, going out more is highly correlated with high alcohol use. The number of failures in class in the past is associated with higher alcohol intake. Interesting correlation/causation question there...Does past failures cause self-confidence issues relating to alcohol abuse or higher alcohol intake is likely to make you fall behind school and therefore becoming the cause of failures in classes? Further investigation needed. 
+
+```{r echo=TRUE,warning=FALSE}
+library(GGally)
+library(finalfit)
+cols_interest%>% 
+  remove_labels() %>%
+  ggpairs()
+```
+
+This suggests that absences have very little impact on failures. Interesting...A bit further investigation to explore what the impact of going out has on failures and alcohol consumption. 
+
+```{r echo=TRUE,warning=FALSE}
+goout_failures<-ggplot(data = cols_interest, aes(y=failures,x=alc_use,colour=factor(goout))) +
+      geom_jitter()+geom_smooth(method="lm")+
+  scale_fill_viridis_c()+
+      theme(text = element_text(size=15))+
+      theme(axis.text.x = element_text(angle=90))+
+  ylim(c(0,3))
+goout_failures
+```
+
+From this we can confirm that high alcohol use is related to higher number of past failures. And the more social drinking (going out a lot) is also associated with exam failures. Slopes are slightly different for "go out" factor, suggesting that there maybe some non -linear relationships going on. 
+
+#### **Task 4 - Logistic regression**
+
+```{r echo=TRUE,warning=FALSE}
+logdata<-dplyr::select(alc,c("goout","sex","absences","failures","alc_use","high_use"))
+str(logdata)
+#Sex is a character here. We have to turn this into a factor for GLM to treat it properly. While we are at it, do the same for logical var high_use as this will be our response variable in the binomial model
+logdata$sex<-as.factor(logdata$sex)
+logdata$high_use<-as.factor(logdata$high_use)
+
+bin_full<- glm(high_use ~ failures + absences + sex + goout, data = logdata, family = "binomial")
+summary(bin_full)
+
+```
+
+This suggests that all predictors (sex, failures, going out and absences) are significant in the model at 95% level or above. Students'  sex, social habits (going out) and failures have relatively high impact on determining whether student belong to high alcohol intake classification (log(odds(high_use))). The odds ratio for these variables are 2.66, 2 and 1.63 respectively. We get this by exp() of corresponding estimate values. Surprisingly, absences have the least impact on the likelihood of student's likelihood of being in high alcohol group. Alternatively, we just get the tidy() function like below. 
+
+```{r echo=TRUE,warning=FALSE}
+library(broom)
+bin_full %>% 
+  tidy(conf.int = TRUE, exp = TRUE)
+```
+
+Here we have the Odds ration under estimate column at 95% CI.  Confidence intervals are in column 6 and 7, you will have to scroll back. 
+
+Since the summary() function above was not showing the residual information, which is perhaps the most important information about model fit. I am not sure why its missing...but i am going to get this manually.
+
+```{r echo=TRUE,warning=FALSE}
+bin_full%>%glance()
+```
+Hmmm the df. residuals is high, so maybe further investigation is necessary, I am going the old fashioned way here. 
+
+```{r echo=TRUE,warning=FALSE}
+r_binfull<-rstandard(bin_full)
+f_binfull<-fitted(bin_full)
+
+
+ggplot(data = bin_full, aes(x = f_binfull, y = r_binfull)) +
+    geom_point( size = 0.5, alpha = 0.5) + 
+    geom_smooth(method = "gam", se = FALSE) +  
+    labs(x = "Fitted values", y = "Residuals") + 
+    theme(text = element_text(size = 15))
+```
+
+This is not looking very good. The fact that there is some curvature on the shape of the residuals suggests to me the model fitting is less than perfect. Lets test this on a variable that wasn't used in the model (this is a method proposed by Zuur et al., 2016.)
+
+```{r echo=TRUE,warning=FALSE}
+plot(x = logdata$alc_use, 
+     y = r_binfull, 
+     xlab = "Alcohol use",
+     ylab = "Residuals")
+```
+
+Ok suspicion confirmed. Model is clearly over dispersed at higher values of alcohol use. So further fine tuning of this model is necessary before it being fit for use. For the sake of this exercise however, i am going to continue with the bin_full model for now. 
+
+#### **Task 5 - Predict function**
+
+The predict() function uses the fitted model to create probability values between 0 and 1. Its a very convenient way of using a logistic regression model output, as odds ratio and likelihood does my head in! 
+
+```{r echo=TRUE,warning=FALSE}
+prob_high_alc<- predict(bin_full, type = "response")
+logdata<- mutate(logdata, prob = prob_high_alc)
+logdata<-mutate(logdata,pred=prob>0.5)
+
+
+```
+
+##### Tabulating 
+
+```{r echo=TRUE,warning=FALSE}
+table(high_use=logdata$high_use,prediction=logdata$pred)
+
+```
+A bit messy! Low false positives, but quite high false negatives! 
+Error rate is usually calculated by (false positive+false negatives)/(Positive+negative) and accuracy is the inverse of this. Error is (61+16)/(243+16+61+50)=0.20 Accuracy is 1-error=0.8 
+
+To me there is a bit of a mismatch between the accuracy and model fitness. I'd say that model was not fit very well (residuals not completely random). there maybe some overfitting involved, which will push the accuracy metrics up. 
+```{r echo=TRUE,warning=FALSE}
+g <- ggplot(logdata, aes(x = high_use, y = prob))+geom_boxplot()
+g
+```
+
+Boxplot makes sense to me. Though there is a grey area where the TRUE and FALSE overlap a fair bit around probability of 0.2 and 0.4. Could go either way...that suggests a fair bit of misclassification at that end. 
+
+#### **Task 6 - Bonus**
+
+To perform cross validation we need a loss function first, the use the boot library cv.glm function which gives us the average number of wrong predictions. 
+```{r echo=TRUE,warning=FALSE}
+loss_func <- function(class, prob) {
+  n_wrong <- abs(class - prob) > 0.5
+  mean(n_wrong)
+}
+library(boot)
+cv <- cv.glm(data = logdata, cost = loss_func, glmfit = bin_full, K = 10)
+cv$delta[1]
+#0.21 which seems to correspond to the error that we calculated above by hand. And yes its better than the model given in example exercise, which didn't have going out as a predictor. 
+```
+#### **Task 6 - Extra bonus**
+ 
+```{r echo=TRUE,warning=FALSE}
+
+library(finalfit)
+dependent <- "high_use"
+explanatory <- c("sex","Pstatus","guardian","higher","romantic","age","famrel","freetime","goout","failures","absences")
+explanatory_1<-c("sex","failures","absences","goout")
+
+alc %>% 
+  finalfit(dependent, explanatory, explanatory_1, 
+           keep_models = TRUE, metrics = TRUE)
+```
