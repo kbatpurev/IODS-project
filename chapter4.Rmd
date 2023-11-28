@@ -203,21 +203,47 @@ qplot(x = 1:k_max, y = tot_w_sumsq , geom = 'line')
 # k-means clustering with 4
 km <- kmeans(Boston, centers = 3)
 
-#I am going to go back to the 
+#I am going to split the dataframe into 2 bits, otherwise it is a little unruly. 
 pairs(Boston[1:7], col = km$cluster)
 
 ```
 
-Crime rates, nitrogen oxide concentration and proportion of large residential plots separate out into groups in a very distinct fashion compared to the rest of the variables. 
+Specific range of some variables such as the proportion of non-retail businesses in town separate into groups in a distinct fashion regardless of their correlation with the rest of the variables. The same cluster (black) are generally close to business districts, older residential areas built pre 1940s and medium nitgrogen oxide concentration. The second group (green) are a bit more evenly spread in terms of its association with a specific relationship. Perhaps the strongest effect of green group is visible in low nitrogen concentration in areas further away from central business districts. The third red group has the most salt and pepper effect on the graph, suggesting this is the "mixed bag" group.  
 
 ```{r , warning=FALSE}
 pairs(Boston[8:13], col = km$cluster)
 ```
 
+Ok, here the red group (third group) separates out much clearly. Its associated with medium range in property tax value. Property tax variable may be the most important one that help with the clustering (strongest separation happens here). 
 
-```{r , warning=FALSE}
+#### **Task 7 - Bonus**
 
+Reload data and check that everything has been scaled and centred. 
+
+```{r warning=FALSE}
+
+str(Boston)
+boston_scaled=as.data.frame(scale(Boston,center=TRUE,scale=TRUE))
+glimpse(boston_scaled)
+
+set.seed(19885)
+#I chose 5 clusters
+km_1<-kmeans(boston_scaled,centers=5)
+
+#This is to join it back onto the dataframe, so that its the right dimension
+km1_cluster<-km_1$cluster
+#Join
+boston_scaled$cluster<-cbind(boston_scaled,km1_cluster)
+
+#A bit awkward syntax, sorry! ran out of time to fix it
+lda.boston <- lda(cluster$km1_cluster~., data = boston_scaled)
+
+plot(lda.boston,dimen = 2)
+lda.arrows(lda.boston, myscale = 2)
 ```
+
+The most influential separators are accessibility to radial highways (rad), proportion of non-residential business areas (indus) and nitrogen oxide concentration (nox). Not sure what happened to property tax...? This was my hypothesis in Task 6, but this lda is run on standardised dataset, which maybe the cause in difference. But not 100% sure. 
+
 
 ```{r , warning=FALSE}
 
