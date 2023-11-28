@@ -1,0 +1,225 @@
+---
+title: "chapter4"
+author: "khorloo batpurev"
+date: "2023-11-26"
+output: html_document
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Week 4 Clustering
+
+```{r echo=FALSE}
+date()
+.libPaths(new="C:/LocalData/batkhor/Packages")
+
+library(here)
+library(MASS)
+library(corrplot)
+library(tidyverse)
+
+```
+
+#### **Task 1 - Load Boston data**
+
+```{r echo=FALSE}
+library(MASS)
+data("Boston")
+str(Boston)
+dim(Boston)
+
+```
+Boston dataset is one of the popular publically available datasets in R. Its a sociology study dataset that desribes a broad range of demographic, housing infrastructure and environmental variables related to the city of Boston, MA. The dataset has 506 rows and 14 columns. A more detailed description of the dataset can be found here https://stat.ethz.ch/R-manual/R-devel/library/MASS/html/Boston.html. 
+
+#### **Task 2 - Graphical overview of Boston data**
+```{r}
+library(psych)
+Boston<-dplyr::select(Boston,-chas) #I removed this variable because its a dummy variable and we only want to see the relationships between relevant stuff. 
+pairs.panels(Boston, 
+             method = "pearson", # correlation method
+             hist.col = "#00AFBB",
+             density = TRUE,  # show density plots
+             )
+#I prefer pairs.panel function over corrplot in the exercise because i get precise correlation values rather than coloured circles...
+
+#cor_matrix <- cor(Boston) 
+#corrplot(cor_matrix, method="circle")
+
+```
+
+##### Distributions of variables
+
+**Left skewed** variables: crime rate (crim), proportion of residential land zoned for lots over 25,000 sq.ft (zn), mean distance to business districts (dis) and to some extent lower status (lstat) and median property value (medv) but the latter two are almost normal. Left shewed variables have higher proprotion of low values and lower proportion of higher values.  
+
+**Right skewed** variables: proportion of owner-occupied properties built before 1940 (age), pupil-teacher ratio (pratio) and proportion of black people (black). Right skewed variables have high proportion of values at the higher scale and low proportion of values at lower scale. For example, with age variable, majority of older residential buildings in Boston were built before 1940. 
+
+**Bi-modal distribution**: accessibility to radial highways (rad), value of property-tax rate per $10,000 (tax) and proportion of non-retail business acres per town (indus). These variables have two peaks i.e., they have high proportion of values at both low and high scales. 
+
+##### Relationship between variables
+
+The most significant **positively** correlated variables in the descending order of Pearson's correlation coefficient are: 
+
+1. *accessibility to radial highways* (rad) vs.*full-value property-tax rate per $10,000* (tax) = 0.91 This indicates that the location of properties in relation to highways determine the value of the property - higher value would mean higher tax rate. 
+
+2. *proportion of non-retail business acres per town* (indus) vs. *nitrogen oxides concentration (parts per 10 million)* (nox) = 0.76 This suggests that pollution levels in industrial zones of Boston are high. 
+
+3. *nitrogen oxides concentration (parts per 10 million)* (nox) vs. *proportion of owner-occupied units built prior to 1940* (age) = 0.73 This suggests that older residential areas tend to have higher air pollution levels, which maybe due to industrial era housing being associated with industrial zones (workers living close to factories). It's interesting because in many non-industrial cities around the world, this correlation might be negative because older residential areas tend to be close to city centres where traffic rate is often low and restricted (due to high parking rates). But I guess Boston being an old industrial hub of the US, this association makes sense. 
+
+4. *proportion of non-retail business acres per town* (indus) vs. *full-value property-tax rate per $10,000* (tax) = 0.72. This indicates that industrial real estates are high value in Boston. 
+
+The most significant **negatively** correlated variables in the descending order of Pearson's correlation coefficient are: 
+
+5. *nitrogen oxides concentration (parts per 10 million)* (nox) vs. *weighted mean of distances to five Boston employment centres* (dis) = -0.77. This indicates that business centres are associated with better air quality. It maybe that business districts are mainly accessed by trains and public transports which would equal to less air pollution associated with traffic/trucks. 
+
+6. *weighted mean of distances to five Boston employment centres* (dis) vs. *proportion of owner-occupied units built prior to 1940* (age) = -0.75. This indicates that older residential areas are not in central business districts which confirms the hypothesis i made above about older residential areas being close to factories/warehouses rather than city centres. 
+
+7. *lower status of the population (percent)* (lstat) vs. *median value of owner-occupied homes in $1000s* (medv) = -0.74. This indicates that lower socio-economic status is associated with cheaper homes. 
+
+8. *proportion of non-retail business acres per town* (indus) vs. *weighted mean of distances to five Boston employment centres* (dis) = -0.71. This implies that industrial areas are far away from central business districs. 
+
+These all make sense. Perhaps the most striking inverse correlation (from what i would have guessed) was between property value tax and low socio-economic status being positively correlated whilst property tax value and the value of owner occupied homes being negatively correlated. This suggests that poorer people pay high property tax than people who own high value homes! I am not 100% convinced that my interpretation is correct, but the only way it makes sense is that somehow there a taxation mechanism that penalises higher mortgage rate (lower social status people still paying off high debt) whilst if you have paid off your mortgage (higher income/old money people) then property tax is less...? I am still not sure. 
+
+#### **Task 3 - Data preparation**
+
+##### Scaling the data
+
+```{r , warning=FALSE}
+scaled_data<-as.data.frame(scale(Boston,center=TRUE, scale=TRUE))
+#Center and scale functions are TRUE by default, but typed here i typed it in to remind myself what i exactly did later on. 
+
+glimpse(scaled_data)
+```
+Scaling changes the values to what i describe as gibberish numbers because we have taken the mean off everything and divided by the spread (standard deviation). But its a useful thing to do when we are interested in exploring the underlying clusters and relationships (fitting models). 
+
+##### Making factors
+
+We need quantiles first to choose the factor bins. Then create a new crime variable that is a factor, and rejoin it to the dataframe. 
+```{r , warning=FALSE}
+scaled_data$crim<-as.numeric(scaled_data$crim)
+factor.bins <- quantile(scaled_data$crim)
+factor.bins
+
+crime <- cut(scaled_data$crim, breaks = factor.bins, include.lowest = TRUE)
+glimpse(crime)
+
+scaled_data<-dplyr::select(scaled_data,-crim)
+scaled_data_new<-cbind(scaled_data,crime)
+glimpse(scaled_data_new)
+```
+
+##### Split the data into training and test sets
+
+The code below sets up an index string called s_80, which randomly samples rows from the 506 rows of data in scaled_data_new dataframe, then uses the index object to split the dataframe into 80/20 training and test set. 
+
+```{r , warning=FALSE}
+s_80 <- sample(506,  size = 506* 0.8)
+train=scaled_data_new[s_80,]
+test=scaled_data_new[-s_80,]
+```
+
+#### **Task 4 - Linear discriminant analysis**
+
+```{r , echo=TRUE, warning=FALSE}
+lda.train.fit <- lda(crime~., data = train)
+lda.train.fit
+plot(lda.train.fit) #sames as adding extra argument dimen = 3
+
+#Create LDA arrow
+lda.arrows <- function(x, myscale = 2, arrow_heads = 0.1, color = "forestgreen", tex = 0.75, choices = c(1,2)){
+  heads <- coef(x)
+  graphics::arrows(x0 = 0, y0 = 0, 
+         x1 = myscale * heads[,choices[1]], 
+         y1 = myscale * heads[,choices[2]], col=color, length = arrow_heads)
+  text(myscale * heads[,choices], labels = row.names(heads), 
+       cex = tex, col=color, pos=3)
+}
+
+#Turn factor to numeric for plotting purposes
+classes <- as.numeric(train$crime)
+plot(lda.train.fit,dimen = 2)
+lda.arrows(lda.train.fit, myscale = 2)
+```
+
+There is clearly two, possibly more clusters from the image above. It seems the main discriminant variable is rad or accessibility to radial highways. The other two influential variables that may help determine the clustering are large residential plots (zn = proportion of residential land zoned for lots over 25,000 sq.ft.) and air pollution levels (nox = nitrogen oxides concentration (parts per 10 million)). 
+
+#### **Task 5 - Predict classes**
+
+```{r , echo=TRUE, warning=FALSE}
+
+#Lets reload from source again as we need the original scaled dataset with quantile bins to translate them into low, medium and high categories. 
+boston_1 <- read.table("https://raw.githubusercontent.com/KimmoVehkalahti/Helsinki-Open-Data-Science/master/datasets/boston_scaled.txt",
+                            sep=",", header = T)
+boston_1$crime <- factor(boston_1$crime, levels = c("low", "med_low", "med_high", "high"))
+
+
+s_80 <- sample(506,  size = 506* 0.8)
+train=boston_1[s_80,]
+test=boston_1[-s_80,]
+
+lda.train.fit <- lda(crime~., data = train)
+lda.train.fit
+
+test <- dplyr::select(test, -crime)
+lda.pred <- predict(lda.train.fit, newdata = test)
+
+test=boston_1[-s_80,]
+correct_classes <- test$crime
+
+table(correct = correct_classes, predicted = lda.pred$class)
+
+```
+The linear discriminant model does well generally speaking. The model is specially good at classifying high crime rates correctly. However, it is more likely to get low crime rate class wrong - classifying them as medium-low rather than low. This is probably ok. The concerning misclassification happens around medium-high crime rates being classified as low (only one instance) and medium-low rather than high. 
+
+#### **Task 6 - Distances and k-means clustering**
+
+```{r , echo=TRUE, warning=FALSE}
+glimpse(boston_1) #We have already loaded it for the LDA exercise above. 
+
+#Euclidiean distance
+dist_euc<-dist(boston_1,method = "euclidean") #can also not specify method here as that is default for dist function. But for Manhattan distance, it is necessary to specify the method. 
+glimpse(dist_euc)
+head(dist_euc)
+
+#Manhattan distance
+dist_man<-dist(boston_1,method="manhattan")
+glimpse(dist_man)
+head(dist_man)
+```
+
+From the output of the head() function, the two distances are vastly different. Why? Euclidean is the shortest distance between two points whereas Manhattan distance is sum of all absolute distances between two points. This is why the values in the dist_man are much higher than dist_euc. I am guessing that Manhattan distance considers more contextual information than Euclidean distance.  
+
+```{r , warning=FALSE}
+library(ggplot2)
+set.seed(1853) #Otherwise we get different clustering every time we run the code below.
+k_max <- 16 #I increased this a little bit because I wanted it to see when it plateaued out. 
+
+# calculate the total within sum of squares
+tot_w_sumsq <- sapply(1:k_max, function(k){kmeans(Boston, k)$tot.withinss})
+qplot(x = 1:k_max, y = tot_w_sumsq , geom = 'line')
+#Either 3 or 5 clusters would be my choice in reduction in variance. After 8 its fairly flat, so there is no benefit in adding any more after that. 
+
+# k-means clustering with 4
+km <- kmeans(Boston, centers = 3)
+
+#I am going to go back to the 
+pairs(Boston[1:7], col = km$cluster)
+
+```
+
+Crime rates, nitrogen oxide concentration and proportion of large residential plots separate out into groups in a very distinct fashion compared to the rest of the variables. 
+
+```{r , warning=FALSE}
+pairs(Boston[8:13], col = km$cluster)
+```
+
+
+```{r , warning=FALSE}
+
+```
+
+```{r , warning=FALSE}
+
+```
+
