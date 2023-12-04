@@ -39,10 +39,11 @@ df_summary
 lookup <- c(hdi_rank = "HDI Rank" , 
             hdi = "Human Development Index (HDI)",
             life_exp="Life Expectancy at Birth",
-            exp_edu="Life Expectancy at Birth",
+            exp_edu="Expected Years of Education",
             mean_edu="Mean Years of Education",
             gni="Gross National Income (GNI) per Capita",
-            gni_hdi_diff="Gross National Income (GNI) per Capita",
+            gni_per_cap="Gross National Income (GNI) per Capita",
+            gni_diff_hdi="GNI per Capita Rank Minus HDI Rank",
             gii_rank="GII Rank",
             gii="Gender Inequality Index (GII)",
             mat_mort="Maternal Mortality Ratio",
@@ -63,6 +64,6 @@ glimpse(df)
 str(df)
 #19 (17 original + 2 new) variables from 195 Countries
 
-
+write_csv(df,"C:/LocalData/batkhor/Coursework/IODS_23/IODS-project/human_data_for_ex5.csv")
 
 
