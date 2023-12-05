@@ -19,32 +19,32 @@ library(boot)
 ### **Part 1 - Data manipulation**
 
 I saved this file locally on my computer
-```{r cars}
+```{r echo=TRUE,warning=FALSE}
 humandata<-read_csv("human_data_for_ex5.csv")
 glimpse(humandata)
 
 ```
 This is a global dataset including main economic and socio-demographic variables that is aimed at measuring gender inequality in the work force. There are 195 countries (rows in the dataset) and 19 columns. The below header shows the details of the columns in the dataset. 
 
-*hdi_rank = HDI Rank* 
-*hdi = Human Development Index (HDI)*
-*life_exp=Life Expectancy at Birth*
-*exp_edu=Expected Years of Education*
-*mean_edu=Mean Years of Education*
-*gni_per_cap=Gross National Income (GNI) per Capita*
-*gni_diff_hdi=GNI per Capita Rank Minus HDI Rank*
-*gii_rank=GII Rank*
-*gii=Gender Inequality Index (GII)*
-*mat_mort=Maternal Mortality Ratio*
-*ad_birth=Adolescent Birth Rate*
-*perc_parl=Percent Representation in Parliament*
-*fem_sec=Population with Secondary Education (Female)*
-*male_sec=Population with Secondary Education (Male)*
-*fem_part=Labour Force Participation Rate (Female)*
-*male_part=Labour Force Participation Rate (Male)*
+* *hdi_rank = HDI Rank* 
+* *hdi = Human Development Index (HDI)*
+* *life_exp=Life Expectancy at Birth*
+* *exp_edu=Expected Years of Education*
+* *mean_edu=Mean Years of Education*
+* *gni_per_cap=Gross National Income (GNI) per Capita*
+* *gni_diff_hdi=GNI per Capita Rank Minus HDI Rank*
+* *gii_rank=GII Rank*
+* *gii=Gender Inequality Index (GII)*
+* *mat_mort=Maternal Mortality Ratio*
+* *ad_birth=Adolescent Birth Rate*
+* *perc_parl=Percent Representation in Parliament*
+* *fem_sec=Population with Secondary Education (Female)*
+* *male_sec=Population with Secondary Education (Male)*
+* *fem_part=Labour Force Participation Rate (Female)*
+* *male_part=Labour Force Participation Rate (Male)*
 
 
-```{r echo=TRUE}
+```{r echo=TRUE,warning=FALSE}
 #Removing columns that aren't necessary
 complete_fem<- dplyr::select(humandata, c( "Country", "fem_sec", "fem_part", "exp_edu", "life_exp", "gni_per_cap", "mat_mort", "ad_birth", "perc_parl"))
 
@@ -65,7 +65,7 @@ glimpse(complete_fem)
 
 #### **Task 1**
 
-```{r Part 2 task1}
+```{r echo=TRUE,warning=FALSE}
 library(tibble)
 complete_fem1<-column_to_rownames(complete_fem,"Country")
 str(complete_fem1)
@@ -94,9 +94,9 @@ Diagonal rows in blue histogram shows the distribution of the variables and the 
 
 *Positively correlated variables > Pearson correlation coefficient of 0.72*
 
-Life expectancy and expected years of education have positive linear relationship with Pearson correlation coefficient of 0.79. This suggests that the longer the years that people study, the higher the life expectancy is, which is another way of saying education elongates life expectancy. 
+Life expectancy and expected years of education have positive linear relationship with Pearson correlation coefficient of 0.79. This suggests that these demographic variables are highly correlated, generally speaking more education and better health go hand in hand (though not necessarily causal). 
 
-Expected years of education and proportion of females with secondary education have positive correlation (it may not be strictly linear). This suggests that when females are educated at least at secondary level, life expectancy is higher. 
+Expected years of education and proportion of females with secondary education have positive correlation (it may not be strictly linear). This is expected, more secondary educated women will raise the number of years education is continued for the population, 
 
 Maternal mortality and adolescent birth rate are also positively correlated, suggesting that mothers' life are at risk when adolescent birth rate is high. 
 
@@ -104,14 +104,14 @@ Maternal mortality and adolescent birth rate are also positively correlated, sug
 
 Life expectancy and maternal mortality have strong negative correlation, which suggests that when maternal mortality rate increases, life expectancy levels decrease. The Pearson correlation coefficient for this two variables is -0.86. The relationship doesn't look linear, it is more like a decay shape (at life expectancy rate goes higher, the maternal mortality rate continually drops). 
 
-Life expectancy is also negatively correlated with adolescent birth. Similarly as above, as life expectancy increases, adolescent birth rate decreases. The interpretation should be carefully thought through here, i think there is a danger of interpreting this as a sign to say as people get older it is less likely to give birth (adolescent), which certainly makes sense on face value. But the truth is, it is not at all what this correlation is telling us. This is suggesting that generally speaking, at population level when life expectancy increases (healthier, more educated society), then adolescent birth rates drop due to better social and health care. 
+Life expectancy is also negatively correlated with adolescent birth. Similarly as above, as life expectancy increases, adolescent birth rate decreases. The interpretation should be carefully thought through here, i think there is a danger of interpreting this as a sign to say as people get older it is less likely to give birth (adolescent), which certainly makes sense on face value. Hwoever, what i think this is suggesting is that generally speaking, at population level when life expectancy increases (healthier, more educated society), then adolescent birth rates drop due to better social and health care. 
 
 Expected education years and maternal mortality rate are also negatively correlated, suggesting that as the number of years people spend being educated increases, material mortality rate drops (Pearson's correlation coefficient -0.74).
 
 
 #### **Task 2**
 
-```{r warning=FALSE}
+```{r echo=TRUE,warning=FALSE}
 library(factoextra)
 #I prefer factoextra for pca visualisation as it links to ggplot
 
@@ -128,7 +128,8 @@ This doesn't look right. Basically what its doing is that its drawing the covari
 
 
 #### **Task 3**
-```{r warning=FALSE}
+
+```{r echo=TRUE,warning=FALSE}
 #Note what i changed scale=TRUE and center=TRUE
 library(factoextra)
 #I prefer factoextra for pca visualisation as it links to ggplot
@@ -141,11 +142,12 @@ cluster_score<-fviz_pca_biplot(pca,geom="point",label = "var",axes=c(1,2),col.in
 cluster_score
 
 ```
-That looks better! The colour is by life expectancy, red is low and blue is high life expectancy rate. This variable seem to be a good indicator for visualisation because it splits the the rest of the variables very clearly on the principal component. Dimension 1 and 2 add up to nearly 68% meaning that much of the variance in the principle component is explained by just the first two dimension (out of 8 total PCs). This is suggesting that low life expectancy is related to adolescent birth rate and maternal mortality (which confirms the readings from the pairs plot above). Also, material mortality and adolescent birth are highly collinear with each other (direction of arrow very similar). And conversely, expected years of education, proportion of females with secondary education and gross national income are associated with high life expectancy. And the former three variables are highly collinear with each other. 
+
+That looks better! The colour is by life expectancy, red is low and blue is high life expectancy rate. This variable seem to be a good indicator for visualisation because it splits the rest of the variables very clearly on the principal component. Dimension 1 and 2 add up to nearly 68% meaning that much of the variance in the principle component is explained by just the first two dimension (out of 8 total PCs). This is suggesting that low life expectancy is related to adolescent birth rate and maternal mortality (which confirms the readings from the pairs plot above). Also, maternal mortality and adolescent birth are highly collinear with each other (direction of arrow very similar). And conversely, expected years of education, proportion of females with secondary education and gross national income are associated with high life expectancy. And the former three variables are highly collinear with each other. 
 
 Lets see what the other dimensions look like. 
 
-```{r warning=FALSE}
+```{r echo=TRUE,warning=FALSE}
 #Note i changed axes = c(2,3) 
 cluster_score<-fviz_pca_biplot(pca,geom="point",label = "var",axes=c(2,3),col.ind = complete_fem$life_exp, pointsize = 3,gradient.cols = c("#FC4E07","grey","#2E9FDF"),addEllipses=FALSE, ggtheme = theme_minimal(),repel = TRUE,labelsize=8,arrowsize=1)
 cluster_score
@@ -157,7 +159,7 @@ The division of variables is not as clear as Dim 1 and 2.  And the total varianc
 
 As i have included fair bit of interpretation above, I am now going to try and visualise the data by GNI to see what it has on the rest of the social variables. 
 
-```{r warning=FALSE}
+```{r echo=TRUE,warning=FALSE}
 cluster_score<-fviz_pca_biplot(pca,geom="point",label = "var",axes=c(1,2),col.ind = complete_fem$gni_per_cap, pointsize = 3,gradient.cols = c("#FC4E07","grey","#2E9FDF"),addEllipses=FALSE, ggtheme = theme_minimal(),repel = TRUE,labelsize=8,arrowsize=1)
 cluster_score
 ```
@@ -166,14 +168,14 @@ This shows that the majority of 155 countries in the dataset have GNI of around 
 
 #### **Task 5**
 
-```{r warning=FALSE}
+```{r echo=TRUE,warning=FALSE}
 tea <- read.csv("https://raw.githubusercontent.com/KimmoVehkalahti/Helsinki-Open-Data-Science/master/datasets/tea.csv", stringsAsFactors = TRUE)
 View(tea)
 str(tea) #Only 1 numeric value (age) and the rest are factors! 
 
 ```
 
-```{r warning=FALSE}
+```{r echo=TRUE,warning=FALSE}
 library(ggplot2)
 interest_plot<-ggplot(data = tea, aes(y=price,x=age_Q)) +
       geom_point()+
@@ -185,7 +187,7 @@ interest_plot
 
 This is just a basic question about how different age group people take their tea (what type as well as how) and what price they are willing to pay for it. It makes sense. 
 
-```{r warning=FALSE}
+```{r echo=TRUE,warning=FALSE}
 # select variables of interest to create a new dataset
 tea_time <- dplyr::select(tea, c("Tea", "How", "how", "sugar", "where", "lunch"))
 library(FactoMineR)
@@ -196,7 +198,7 @@ plot(mca, invisible=c("ind"), graph.type = "classic")
 
 Total variance explained in dimension 1 and 2 is around 30%. Unpackaged tea tend to be sold in tea shop whilst tea bags are more associated with chain stores. Earl greys are generally not for lunch, milk is generally taken with sugar rather than lemon. This all makes sense. 
 
-```{r warning=FALSE}
+```{r echo=TRUE,warning=FALSE}
 
 library(factoextra)
 fviz_mca_biplot(mca, axes = c(1, 2), geom = "text",
