@@ -1,0 +1,219 @@
+---
+title: "chapter6"
+author: "khorloo batpurev"
+date: "2023-12-11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+.libPaths()
+.libPaths(new="C:/LocalData/batkhor/Packages")
+
+library(glmmTMB)
+library(readr)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+```
+
+# Week 6 - Longitudinal analysis
+
+### *Part 1 - Data wrangling and preparation*
+
+#### **Task 1 - Load in the data, explore structure** 
+
+```{r data links}
+bprs<-read.delim2("https://raw.githubusercontent.com/KimmoVehkalahti/MABS/master/Examples/data/BPRS.txt",header = TRUE, sep = " ", dec = ",")
+
+rats<-read.delim2("https://raw.githubusercontent.com/KimmoVehkalahti/MABS/master/Examples/data/rats.txt",header = TRUE, sep = "\t", dec = ",")
+
+```
+```{r data structures bprs, echo=TRUE}
+names(bprs)
+summary(bprs)
+```
+
+This is a repeated measures dataset with 40 rows and 11 columns. There are 2 types of treatments (1 and 2) and 20 participants in each treatment. The treatments have been repeated over a period of 8 weeks on each participant, with an initial measurement at week0. 
+
+
+```{r data structures rats, echo=TRUE}
+names(rats)
+summary(rats)
+
+```
+Another repeated measures data with 16 rows and 13 columns. Rows are for each rat in the experiment, they have been divided into 3 groups (1-3). The effect of the treatment have been measured 11 weeks (WD1,8 etc) over 64 days. 
+
+#### **Task 2 - Factorise variables** 
+
+```{r factorise, echo=TRUE}
+#The two categorical variables in bprs dataset are the Treatment type and the Subject, the rest are continuous. 
+bprs$treatment<-as.factor(bprs$treatment)
+bprs$subject<-as.factor(bprs$subject)
+
+#In rats data its the ID and Group variables that are categorical, and the rest are continous. 
+rats$ID<-as.factor(rats$ID)
+rats$Group<-as.factor(rats$Group)
+```
+
+#### **Task 3 - Reshape the dataframes** 
+
+```{r reshape, echo=TRUE}
+bprslong<-pivot_longer(bprs, 
+                       cols = -c(treatment, subject),
+                       names_to = "weeks",
+                       values_to="values")%>%arrange(weeks)
+head(bprslong)
+
+ratslong<-pivot_longer(rats, 
+                       cols = -c(ID, Group),
+                       names_to = "time",
+                       values_to="values")%>%arrange(time)
+head(ratslong)
+```
+#### **Task 4 - Understand the long format** 
+
+```{r reshape2, echo=TRUE}
+#View(bprslong)
+summary(bprslong)
+
+#View(ratslong)
+summary(ratslong)
+```
+
+
+The long format allows us to structure data in a way that separates the repeated measures or the "nestedness" of the data from the measurements which are always continuous and numerical. The long format is necessary for linear mixed models that require all the predictor variables under one variable name (syntax wise as well as model interpretation wise), separated from the identity of variables that tells us about the hierarchy in the data (nestedness/repeated measures). 
+
+The bprs long format has 360 rows and 4 variables, compared to the 40 rows and 11 variables in wide format. Each treatment is comprised of 180 values, the measurement for each subject is repeated 9 times (including week0) under each treatment. The values for the subjects under both treatment ranges between 18 and 95. This is a balanced dataset that has equal number of values for each treatment and subject. 
+
+Similarly, the rats long format has 176 observations and 4 variables vs 16 obs and 13 variables in the wide format. Group one has 88 observations compared to group 2 and 3, so this is not a balanced dataset. Values for treatment range between 225 and 628.  
+
+
+### *Part 2 - Linear mixed models*
+
+#### **Part 1 - Analysis on rats data**
+
+##### *Overview plots*
+
+```{r analysis 1 bprs, echo=TRUE}
+#Summary visualisation on BPRS data
+bprslong$weeks<-as.factor(bprslong$weeks)
+bprs_sst <- bprslong %>%
+  group_by(treatment, weeks) %>%
+  summarise( mean = mean(values), 
+             sd = sd(values),
+             n = n(),
+             se = sd / sqrt(n)) %>%
+  ungroup()
+
+gg1<-ggplot(bprs_sst, aes(x = weeks, y = mean, linetype = treatment, shape = treatment)) +
+  geom_line() + theme_classic()+
+  scale_linetype_manual(values = c(1,2)) +
+  geom_point(size=3) +
+  scale_shape_manual(values = c(1,2)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se, linetype="1",group=treatment,colour=treatment), width=0.3) +
+  theme(legend.position = c(0.8,0.8))+
+  ylab("Mean value with standard errors")
+gg1
+```
+
+There is an interesting and potentially non-linear effect of the treatment over time. The mean values for each treatment start off differently, and then nearly converge a couple of times at week 1 and then again around week 5 and then diverge again after that. Generally speaking, there is a plateau type effect happening towards the end of the treatment period (specially for treatment 1). The mean effect for treatment 2 was lower or nearly the same as treatment 1 at the start of the experiment, but at the end of the treatment is ends up higher. Further tests probably a wise idea to prove/disprove this initial hunch! 
+
+```{r analysis 1 rats, echo=TRUE}
+#Summary visualisation on BPRS data
+ratslong$time<-as.factor(ratslong$time)
+rats_sst <- ratslong %>%
+  group_by(Group, time) %>%
+  summarise( mean = mean(values), 
+             sd = sd(values),
+             n = n(),
+             se = sd / sqrt(n))%>%ungroup()
+#Ordering like this is necessary, otherwise the second time variable WD8 comes at last (ggplot thinks 8>1)
+level_order<- c("WD1","WD8", "WD15", "WD22", "WD29", "WD36", "WD43", "WD44","WD50","WD57","WD64")
+
+gg2<-ggplot(rats_sst, aes(x = factor(time,level=level_order), y = mean, linetype = Group, shape = Group)) +
+  geom_line() + theme_classic()+
+  scale_linetype_manual(values = c(1,2,3)) +
+  geom_point(size=3) +
+  scale_shape_manual(values = c(1,2,3)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se, linetype="1",group=Group,colour=Group), width=0.3) +
+  ylab("Mean value with standard errors")+
+  xlab("Measurements times")
+gg2
+```
+
+This is a much more linear relationship where the treatment effect inreases the animals' weight over time. There is a group level effect, with Group 1 having the lowest mean (<300grams) and Group 2 and 3 more comparable means around 450-550 grams. 
+
+##### *Outliear plots*
+
+```{r analysis 1 bprs cleveland, echo=TRUE}
+#Cleveland plot function = this is my preferred way to see outliers. 
+library(latticeExtra)
+Mydotplot = 
+  function(DataSelected){
+P <- lattice::dotplot(as.matrix(as.matrix(DataSelected)),
+          groups=FALSE,
+          strip = strip.custom(bg = 'white',
+                               par.strip.text = list(cex = 1.2)),
+          scales = list(x = list(relation = "free", draw = TRUE),
+                        y = list(relation = "free", draw = FALSE)),
+          col=1, cex  = 0.5, pch = 16,
+          xlab = list(label = "Value of the variable", cex = 1.5),
+          ylab = list(label = "Order of the data from text file", cex = 1.5))
+  
+print(P)  
+  }
+
+#Select the variables that you want to see if there is an outlier. You can expand the Myvar string which is useful when there are multiple variables. Otherwise the syntax in [] gets a little unruly. 
+Myvar <- c("values")
+Mydotplot(bprslong[,Myvar])
+Mydotplot(ratslong[,Myvar])
+
+
+```
+
+There is potentially one outliear in BPRS data (~value of around 95)! It relates to subject 11 under treatment 2 in week 1. It might be worth checking the overview without this point to see if the general trend changes. 
+
+There doesn't seem to be an obvious outlier in RATS data. 
+
+```{r check outlier, echo=TRUE}
+bprs_sst <- bprslong %>%
+  filter(values<94)%>%
+  group_by(treatment, weeks) %>%
+  summarise( mean = mean(values), 
+             sd = sd(values),
+             n = n(),
+             se = sd / sqrt(n)) %>%
+  ungroup()
+
+gg3<-ggplot(bprs_sst, aes(x = weeks, y = mean, linetype = treatment, shape = treatment)) +
+  geom_line() + theme_classic()+
+  scale_linetype_manual(values = c(1,2)) +
+  geom_point(size=3) +
+  scale_shape_manual(values = c(1,2)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se, linetype="1",group=treatment,colour=treatment), width=0.3) +
+  theme(legend.position = c(0.8,0.8))+
+  ylab("Mean value with standard errors")
+gg3
+```
+
+Ok, so the week 2 convergence (means very close to each other) of means of the two treatments were definitely due to the outlier that we identified. The rest are the same: 
+
+* *non-linear effect over time*
+* *convergence and then divergence around week 5*
+* *possibly interactive relationship between measurement time and means*
+
+Worth noting that it is a bit of a subjective call to identify outlier, some may choose a value that is much lower than the single point that I identified. In the course material makes this call around 70, which could be a little bit restrictive. Perhaps a more elementary plot with indidivuals as lines will inform us a little further about this.  
+
+```{r check outlier 2, echo=TRUE}
+
+gg4<-ggplot(bprslong, aes(x = weeks, y = values, linetype = subject))+
+  geom_line()+
+  theme_classic()+
+  scale_linetype_manual(values = rep(1:10, times=4))+
+  facet_wrap(. ~ treatment,ncol=1,scales = "free_y")+
+  theme(legend.position="none")
+gg4
+
+```
+
