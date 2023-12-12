@@ -5,7 +5,7 @@ date: "2023-12-11"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r start, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 .libPaths()
 .libPaths(new="C:/LocalData/batkhor/Packages")
@@ -62,7 +62,8 @@ rats$Group<-as.factor(rats$Group)
 bprslong<-pivot_longer(bprs, 
                        cols = -c(treatment, subject),
                        names_to = "weeks",
-                       values_to="values")%>%arrange(weeks)
+                       values_to="values")%>%
+  mutate(weeks = as.integer(substr(weeks, 5, 5)))%>%arrange(weeks)
 head(bprslong)
 
 ratslong<-pivot_longer(rats, 
@@ -84,16 +85,16 @@ summary(ratslong)
 
 The long format allows us to structure data in a way that separates the repeated measures or the "nestedness" of the data from the measurements which are always continuous and numerical. The long format is necessary for linear mixed models that require all the predictor variables under one variable name (syntax wise as well as model interpretation wise), separated from the identity of variables that tells us about the hierarchy in the data (nestedness/repeated measures). 
 
-The bprs long format has 360 rows and 4 variables, compared to the 40 rows and 11 variables in wide format. Each treatment is comprised of 180 values, the measurement for each subject is repeated 9 times (including week0) under each treatment. The values for the subjects under both treatment ranges between 18 and 95. This is a balanced dataset that has equal number of values for each treatment and subject. 
+The bprs long format has 360 rows and 4 variables, compared to the 40 rows and 11 variables in wide format. Each treatment is comprised of 180 values, the measurement for each subject is repeated 9 times (including week0) under each treatment. These are 40 men (subject 1 - 20 in each treatment) who have gone under two types of psychiatric treatments (1 and 2) over 8 weeks. Caution have to be taken, in that the way the subject ID has been coded in this dataset (1-20 rather than 1-40), it could be interpreted that there are only 20 men going under 2 types of treatments over 8 weeks period. But that is not the case! The values for the subjects under both treatment ranges between 18 and 95. This is a balanced dataset,in that has equal number of values for each treatment and subject. 
 
-Similarly, the rats long format has 176 observations and 4 variables vs 16 obs and 13 variables in the wide format. Group one has 88 observations compared to group 2 and 3, so this is not a balanced dataset. Values for treatment range between 225 and 628.  
+Similarly, the rats long format has 176 observations and 4 variables vs 16 obs and 13 variables in the wide format. Group one has 88 observations compared to group 2 and 3, so this is not a balanced dataset. Weight values of rats under treatments range between 225 and 628.  
 
 
-### *Part 2 - Linear mixed models*
+### Part 2 - Meat and repeat 1
 
-#### **Part 1 - Analysis on rats data**
+#### **Task 1 - Data exploration and ANOVA**
 
-##### *Overview plots*
+##### Overview plots
 
 ```{r analysis 1 bprs, echo=TRUE}
 #Summary visualisation on BPRS data
@@ -120,8 +121,7 @@ gg1
 There is an interesting and potentially non-linear effect of the treatment over time. The mean values for each treatment start off differently, and then nearly converge a couple of times at week 1 and then again around week 5 and then diverge again after that. Generally speaking, there is a plateau type effect happening towards the end of the treatment period (specially for treatment 1). The mean effect for treatment 2 was lower or nearly the same as treatment 1 at the start of the experiment, but at the end of the treatment is ends up higher. Further tests probably a wise idea to prove/disprove this initial hunch! 
 
 ```{r analysis 1 rats, echo=TRUE}
-#Summary visualisation on BPRS data
-ratslong$time<-as.factor(ratslong$time)
+#Summary visualisation on RATS data
 rats_sst <- ratslong %>%
   group_by(Group, time) %>%
   summarise( mean = mean(values), 
@@ -144,7 +144,7 @@ gg2
 
 This is a much more linear relationship where the treatment effect inreases the animals' weight over time. There is a group level effect, with Group 1 having the lowest mean (<300grams) and Group 2 and 3 more comparable means around 450-550 grams. 
 
-##### *Outliear plots*
+##### Outliear plots
 
 ```{r analysis 1 bprs cleveland, echo=TRUE}
 #Cleveland plot function = this is my preferred way to see outliers. 
@@ -203,17 +203,236 @@ Ok, so the week 2 convergence (means very close to each other) of means of the t
 * *convergence and then divergence around week 5*
 * *possibly interactive relationship between measurement time and means*
 
-Worth noting that it is a bit of a subjective call to identify outlier, some may choose a value that is much lower than the single point that I identified. In the course material makes this call around 70, which could be a little bit restrictive. Perhaps a more elementary plot with indidivuals as lines will inform us a little further about this.  
+Worth noting that it is a bit of a subjective call to identify outlier, some may choose a value that is much lower than the single point that I identified. In the course material makes this call around 70, which could be a little bit restrictive. Perhaps a more elementary plot with individuals as lines will inform us a little further about this.  
 
 ```{r check outlier 2, echo=TRUE}
 
-gg4<-ggplot(bprslong, aes(x = weeks, y = values, linetype = subject))+
-  geom_line()+
-  theme_classic()+
-  scale_linetype_manual(values = rep(1:10, times=4))+
-  facet_wrap(. ~ treatment,ncol=1,scales = "free_y")+
-  theme(legend.position="none")
+bprslong_std<- bprslong %>%
+  group_by(weeks) %>%
+  mutate( stdvals = (values - mean(values))/sd(values) ) %>%
+  ungroup()
+glimpse(bprslong_std)
+
+bprslong_std$weeks<-as.integer(bprslong_std$weeks)
+gg4<-ggplot(bprslong_std, aes(x = weeks, y = stdvals, linetype =subject,colour=subject))+
+  geom_line() + 
+  scale_linetype_manual(values = rep(1:10, times=4))+ 
+  facet_grid(. ~ treatment,labeller = label_both)+ 
+  theme_classic() + theme(legend.position = "bottom")+ 
+  theme(panel.grid.minor.y = element_blank())+ 
+  scale_y_continuous(name = "Standardized evaluation scores")
 gg4
 
 ```
+
+As suspected, person 11 under treatment 20 is much higher distress level than the rest of the participants. I would say that unless there is suspected study communication failure with this person, there is no grounds to remove the individual assessment score that we discussed earlier as an outlier. 
+
+```{r check outlier 3, echo=TRUE}
+ratslong_std<- ratslong %>%
+  group_by(time) %>%
+  mutate( stdvals = (values - mean(values))/sd(values) ) %>%
+    mutate(time = as.integer(substr(time, 3, 3)))%>%
+  ungroup()
+glimpse(ratslong_std)
+
+
+gg4<-ggplot(ratslong_std, aes(x = time, y = stdvals, linetype =ID,colour=ID))+
+  geom_line() + 
+  scale_linetype_manual(values = rep(1:10, times=4))+ 
+  facet_grid(. ~ Group,labeller = label_both)+ 
+  theme_classic() + theme(legend.position = "bottom")+ 
+  theme(panel.grid.minor.y = element_blank())+ 
+  scale_y_continuous(name = "Standardized weights")
+gg4
+
+```
+
+There could be some individuals that are unusual. Boxplot maybe useful! 
+
+```{r check outlier 4, echo=TRUE}
+ratslong_sum<- ratslong%>%
+  group_by(Group, ID) %>%
+  summarise( mean=mean(values) ) %>%
+  ungroup()
+
+
+str(ratslong_sum)
+ggplot(ratslong_sum, aes(x = Group, y = mean)) +
+  geom_boxplot() + theme_classic()+
+  stat_summary(fun = "mean", geom = "point", shape=23, size=4, fill = "white") +
+  scale_y_continuous(name = "mean(weight)")
+
+```
+
+Hmmm, there is an outliear in each of the 3 groups...how inconvenient! This is a bit more complex than filter(value <|> x) type filter because there is one in each group. And the values have to be assessed in a slightly more nuanced way. 
+
+##### Remove outliers
+
+```{r check outlier 5, echo=TRUE}
+
+#This is a function that would be used to calculate the outlier in each group
+is_outlier <- function(x) {
+  return(x < quantile(x, 0.25) - 1.5 * IQR(x) | x > quantile(x, 0.75) + 1.5 * IQR(x))
+}
+
+#We do some arithmetics on the summary dataframe
+ratss<- ratslong_sum %>%tibble::rownames_to_column(var="outlier") %>% group_by(Group) %>% mutate(is_outlier=ifelse(is_outlier(mean), mean, as.numeric(NA)))
+ratss$outlier[which(is.na(ratss$is_outlier))] <- as.numeric(NA)
+
+ggplot(ratss, aes(y=mean, x=factor(Group))) + geom_boxplot() + geom_text(aes(label=outlier),na.rm=TRUE,nudge_y=0.05)
+
+```
+As you can see, rat 2 in Group 1, Rat 12 in Group 2 and Rat 13 in Group 3 are outliers in each group. Now we know this, we can remove them from the dataset. 
+
+```{r check outlier , echo=TRUE}
+head(ratss)
+
+#This removes the outliers from the database. 
+rats1<-ratss %>% filter(is.na(is_outlier))
+
+```
+
+##### *T-test ANOVA*
+
+T-tests are famously 2 sided, so that means we can only compare 2 groups at a time. We will have to do this by a pair at a time. 
+```{r check outlier t-test, echo=TRUE}
+rats_1_2<-rats1%>%filter(Group==1|Group==2)
+rats_2_3<-rats1%>%filter(Group==2|Group==3)
+rats_1_3<-rats1%>%filter(Group==1|Group==3)
+
+#Group1 vs Group2
+t.test(mean~Group, data = rats_1_2, var.equal = FALSE)
+fit_1_2<- lm(mean~Group, data = rats_1_2)
+summary(fit_1_2)
+anova(fit_1_2)
+
+#Group2 vs Group3
+t.test(mean~Group, data = rats_2_3, var.equal = FALSE)
+fit_2_3<- lm(mean~Group, data = rats_2_3)
+summary(fit_2_3)
+anova(fit_2_3)
+
+#Group 1 vs Group3
+t.test(mean~Group, data = rats_1_3, var.equal = FALSE)
+fit_1_3<- lm(mean~Group, data = rats_1_3)
+summary(fit_1_3)
+anova(fit_1_3)
+
+```
+
+This tells us that the treatment effect on all three groups are significant! How do we know this? 
+
+* *all t-test result suggests that the means are difference in means are significant*
+* *all p-values from fitted models are statistically significant at 0*
+* *all ANOVE results suggests that the differences in variance between the two groups are significant*
+
+This was expected based on exploratory plots. 
+
+#### **Task 2 - Linear Mixed Models**
+
+```{r check outlier remove, echo=TRUE}
+library(lme4)
+
+str(bprslong)
+
+#We exclude the baseline measurement
+str(bprslong)
+bprslong1<-bprslong%>%filter(weeks !="0")
+
+#Normally here is when repeated measures structure variables have to be turned into 0. But because we did that earlier, we can proceed. 
+
+mod1 <- lmer(values ~ treatment + weeks + (1 | subject), data = bprslong1, REML = FALSE)
+
+summary(mod1)
+
+```
+
+The random effects here is done on subjects or the 40 men who were part of the psychiatric trial. Both treatment and weeks have been included as fixed effects. This seems like a pretty sensible way to approach it...but can we assume independence between the week 1 and week 2? When i think about that concept, with myself as an example, i can really be convinced that the way i feel this week is affected by the way i felt last week. So its pretty tempting to include weeks as a random effect too! But lets have  a look at mod1 properly. 
+
+This is the statistical structure for mod1:
+
+* *values_ij ~ N(mu_ij, sigma^2)*
+* *E[values_ij] = mu_ij*
+* *mu_ij= intercept + beta1 x treatment_ij + beta2 x weeks_ij+ a_i* 
+* *a_i  ~ N(0, sigma_patient^2)*
+* *Where:i = 1,....., 40 patients; j = 1, ..., n_i*
+
+The intercept value 46.1281 is for treatment 1, and for treatment 2, its slightly higher at 46.52.19 (46.1281+0.3938). 
+
+The correlation between the fixed effects is constant and quite high, though not clear if its significant! 
+
+Below is a version with both weeks and subject as random intercepts. That means the intercept can vary depending on patients as well as weeks of the treatment. 
+
+```{r check 1, echo=TRUE}
+mod2 <- lmer(values ~ treatment + (weeks | subject), data = bprslong1, REML = FALSE)
+
+summary(mod2)
+
+```
+
+The structure for mod2 is
+
+* *values_ij ~ N(mu_ij, sigma^2)*
+* *E[values_ij] = mu_ij*
+* *mu_ij= intercept + beta1 x treatment_ij + a_i+b_i* 
+* *a_i  ~ N(0, sigma_patient^2)*
+* *b_i  ~ N(0, sigma_weeks^2)*
+* *Where:i = 1,....., 40 patients; j = 1, ..., n_i*
+```{r check 2, echo=TRUE}
+anova(mod2, mod1)
+```
+
+According to this, model 1 with only patient as the random intercept is a better fit (smaller AIC). Model 2 is much more complex with 39 parameters estimates, which makes sense because the model is calculating random intercepts for all the participants as well as the time variable! The deviance is smaller for mod1, which means the residuals are just tiny bit closely located to the fitted model means. 
+
+Chi-square values tell us that mod2 is better! 
+
+```{r check 3, echo=TRUE}
+plot(mod1)
+plot(mod2)
+```
+
+The residual plots don't look very good. In fact there is definitely a conical/fan shape ~ this suggests residuals aren't randomly distributed or they point to something non-random in the unexplained variance. 
+
+```{r check 5, echo=TRUE}
+
+mod3 <- lmer(values ~ treatment*weeks + (1 | subject), data = bprslong1, REML = FALSE)
+summary(mod3)
+plot(mod3)
+```
+
+this still looks bad...lets see what the fitted values look like compared to the observed. 
+
+```{r check 4, echo=TRUE}
+Fitted1<-fitted(mod1)
+Fitted2 <- fitted(mod2)
+Fitted3<-fitted(mod3)
+bprslong_fitted<- cbind(Fitted1,Fitted2,Fitted3,bprslong1)
+bprslong_fitted$values<-as.numeric(bprslong_fitted$values)
+
+str(bprslong_fitted)
+
+gg6 <- ggplot(bprslong_fitted, aes( x= weeks, y = values, group=subject,colour=subject))+
+  geom_line()+ theme_bw() + theme(legend.position = "right")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + facet_wrap(.~treatment)+ggtitle("Observed")
+gg6
+
+gg7<- ggplot(bprslong_fitted, aes( x= weeks, y = Fitted1, group = subject,colour=subject))+ geom_line()+ theme_bw() + theme(legend.position = "right")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + facet_wrap(.~treatment)+ggtitle("Fitted values from model 1")
+gg7
+
+gg8 <- ggplot(bprslong_fitted, aes( x= weeks, y = Fitted2, group = subject,colour=subject))+ geom_line()+ theme_bw() + theme(legend.position = "right")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + facet_wrap(.~treatment)+ggtitle("Fitted values from model 2")
+gg8
+
+gg9<- ggplot(bprslong_fitted, aes( x= weeks, y = Fitted3, group=subject,colour=subject))+
+  geom_line()+ theme_bw() + theme(legend.position = "right")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + facet_wrap(.~treatment)+ggtitle("Fitted values from model 3")
+gg9
+
+anova(mod1,mod2,mod3)
+
+```
+
+The observed and fitted values for patients look a bit different, because the fitted values are a result of linear models that suggest distress score (values) generally go down as weeks progress. This is not a terrible assumption, but we can see that there are definitely some patients whose distress score that go up from the raw data. 
+
+Model 3 assumes that there is some kind of interaction between time and treatment as a linear effect. According to the negative values on the intercept for weeks, over time the distress level generally goes down (much stronger trend than suggested in mod2). According to the anova, mod1 is still the best on AIC, but mod 3 is not far behind. 
+
+The individuals' responses don't overlap in model 1 and 3. This is because model is assuming complete independence of time. 
+
 
